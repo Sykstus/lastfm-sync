@@ -11,6 +11,10 @@ require_once __DIR__ . '/config.php';
 
 define('LOCK_FILE',  __DIR__ . '/data/sync.lock');
 define('PAUSE_FILE', __DIR__ . '/data/sync.pause');
+
+function q1($db, $sql, $params=[]) {
+    $s = $db->prepare($sql); $s->execute($params); return $s->fetchColumn();
+}
 define('NP_GRACE_SECONDS', 600); // 10 minut
 
 if (!is_dir(__DIR__ . '/data')) mkdir(__DIR__ . '/data', 0755, true);
@@ -154,7 +158,7 @@ function saveScrobble($runId, $direction, $t) {
     try {
         $artist = is_string($t['artist']) ? $t['artist'] : ($t['artist']['#text'] ?? '');
         $ts = isset($t['date']['uts']) ? date('Y-m-d H:i:s', (int)$t['date']['uts']) : date('Y-m-d H:i:s');
-        getDB()->prepare('INSERT INTO scrobbles (run_id, direction, artist, track, album, scrobbled_at) VALUES (?,?,?,?,?,?)')
+        getDB()->prepare('INSERT IGNORE INTO scrobbles (run_id, direction, artist, track, album, scrobbled_at) VALUES (?,?,?,?,?,?)')
                ->execute([$runId, $direction, $artist, $t['name'] ?? '', $t['album']['#text'] ?? null, $ts]);
     } catch (Exception $e) {}
 }
@@ -186,12 +190,12 @@ function runSync() {
 
     if (!$cfg) { unlink(LOCK_FILE); jsonOut(['status'=>'error','msg'=>'Brak konfiguracji']); return; }
 
-    // Stan (ts) trzymamy w pliku — szybszy odczyt niż baza
-    $stateFile = __DIR__ . '/data/state.json';
-    $state = file_exists($stateFile) ? (json_decode(file_get_contents($stateFile), true) ?? []) : [];
+    // Stan (ts) trzymamy w bazie MySQL — bezpieczniej niż plik JSON
+    $db = getDB();
+    $cfgRow = $db->query('SELECT ts_a, ts_b FROM config ORDER BY id DESC LIMIT 1')->fetch();
     $now = time();
-    $tsA = $state['ts_a'] ?? ($now - 60);
-    $tsB = $state['ts_b'] ?? ($now - 60);
+    $tsA = isset($cfgRow['ts_a']) && $cfgRow['ts_a'] > 0 ? (int)$cfgRow['ts_a'] : ($now - 60);
+    $tsB = isset($cfgRow['ts_b']) && $cfgRow['ts_b'] > 0 ? (int)$cfgRow['ts_b'] : ($now - 60);
 
     dbLog('system', '--- Cykl ' . date('Y-m-d H:i:s') . ' ---', 'info');
 
@@ -211,7 +215,6 @@ function runSync() {
         dbLog('system', 'nowplaying: '.$cfg['a_user'].'='.($npA?'TAK':'nie').' · '.$cfg['b_user'].'='.($npB?'TAK':'nie'), 'info');
 
         // Utwórz rekord cyklu
-        $db = getDB();
         $db->prepare('INSERT INTO sync_runs (np_a, np_b, status) VALUES (?,?,?)')->execute([(int)$npA, (int)$npB, 'running']);
         $runId = $db->lastInsertId();
 
@@ -224,8 +227,8 @@ function runSync() {
                 if ($syncedA2B > 0) $tsA = maxTs($new, $tsA);
                 foreach ($new as $t) { saveScrobble($runId, 'a2b', $t); $artist=is_string($t['artist'])?$t['artist']:($t['artist']['#text']??''); dbLog('a','✓ '.$artist.' — '.($t['name']??''),'ok'); }
             } else { dbLog('a', 'Brak nowych scrobbli do skopiowania'); }
-            // KLUCZOWE: przesuń tsB do teraz żeby B nie cofało się gdy zacznie słuchać
-            $tsB = $now - 30;
+            // Przesuń tsB do ostatniego scrobla B żeby nie cofać się przy zmianie
+            $tsB = maxTs($dataB['tracks'], $tsB);
 
         } elseif ($npB && !$npA) {
             dbLog('b', $cfg['b_user'].' słucha → kopiuję na '.$cfg['a_user'], 'info');
@@ -236,20 +239,18 @@ function runSync() {
                 if ($syncedB2A > 0) $tsB = maxTs($new, $tsB);
                 foreach ($new as $t) { saveScrobble($runId, 'b2a', $t); $artist=is_string($t['artist'])?$t['artist']:($t['artist']['#text']??''); dbLog('b','✓ '.$artist.' — '.($t['name']??''),'ok'); }
             } else { dbLog('b', 'Brak nowych scrobbli do skopiowania'); }
-            // KLUCZOWE: przesuń tsA do teraz żeby A nie cofało się gdy zacznie słuchać
-            $tsA = $now - 30;
+            // Przesuń tsA do ostatniego scrobla A żeby nie cofać się przy zmianie
+            $tsA = maxTs($dataA['tracks'], $tsA);
 
         } elseif ($npA && $npB) {
             dbLog('system', 'Oboje słuchają jednocześnie → pomijam synchronizację', 'warn');
-            // Aktualizuj oba ts do teraz
-            $tsA = $now - 30;
-            $tsB = $now - 30;
+            // Aktualizuj oba ts do najnowszych znanych scrobbli
+            $tsA = maxTs($dataA['tracks'], $tsA);
+            $tsB = maxTs($dataB['tracks'], $tsB);
 
         } else {
             dbLog('system', 'Nikt nie słucha');
-            // Aktualizuj oba ts do teraz — nikt nie słucha, reset okna
-            $tsA = $now - 30;
-            $tsB = $now - 30;
+            // NIE ruszamy ts — przy następnym słuchaniu sync zobaczy wszystkie nowe scroble
         }
 
         // Zaktualizuj rekord cyklu
@@ -262,9 +263,32 @@ function runSync() {
         try { getDB()->prepare('UPDATE sync_runs SET status=?, error_msg=? WHERE id=?')->execute(['error', $errorMsg, $runId ?? 0]); } catch(Exception $ex){}
     }
 
-    // Zapisz stan
-    $state['ts_a'] = $tsA; $state['ts_b'] = $tsB; $state['last_run'] = $now;
-    file_put_contents($stateFile, json_encode($state));
+    // Zapisz stan do bazy MySQL
+    $db->prepare('UPDATE config SET ts_a=?, ts_b=? ORDER BY id DESC LIMIT 1')->execute([$tsA, $tsB]);
+
+    // Automatyczne czyszczenie bazy — uruchamia się raz na dobę
+    $lastCleanup = q1($db, "SELECT MAX(ran_at) FROM sync_runs WHERE status='cleanup'");
+    if (!$lastCleanup || strtotime($lastCleanup) < strtotime('-24 hours')) {
+        try {
+            // Logi — zachowaj ostatnie 7 dni
+            $db->exec("DELETE FROM logs WHERE logged_at < DATE_SUB(NOW(), INTERVAL 7 DAY)");
+            // Cykle sync — zachowaj ostatnie 90 dni
+            $db->exec("DELETE FROM sync_runs WHERE ran_at < DATE_SUB(NOW(), INTERVAL 90 DAY) AND status != 'cleanup'");
+            // Scroble — zachowaj WSZYSTKIE (to jest historia muzyczna — nie usuwamy!)
+            // Opcjonalnie możesz odkomentować poniższe żeby usuwać starsze niż rok:
+            // $db->exec("DELETE FROM scrobbles WHERE scrobbled_at < DATE_SUB(NOW(), INTERVAL 365 DAY)");
+
+            $counts = [
+                'logs'  => q1($db, "SELECT COUNT(*) FROM logs"),
+                'runs'  => q1($db, "SELECT COUNT(*) FROM sync_runs"),
+                'scr'   => q1($db, "SELECT COUNT(*) FROM scrobbles"),
+            ];
+            dbLog('system', 'Cleanup: logs='.$counts['logs'].' runs='.$counts['runs'].' scrobbles='.$counts['scr'], 'info');
+            $db->exec("INSERT INTO sync_runs (np_a, np_b, status) VALUES (0, 0, 'cleanup')");
+        } catch (Exception $e) {
+            dbLog('system', 'Cleanup error: '.$e->getMessage(), 'err');
+        }
+    }
 
     unlink(LOCK_FILE);
     jsonOut(['status'=>$errorMsg?'error':'ok','a2b'=>$syncedA2B,'b2a'=>$syncedB2A,'np_a'=>$npA,'np_b'=>$npB,'error'=>$errorMsg]);

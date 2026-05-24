@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS `config` (
   `a_sk`       VARCHAR(64)  NOT NULL,
   `b_user`     VARCHAR(64)  NOT NULL,
   `b_sk`       VARCHAR(64)  NOT NULL,
+  `ts_a`       INT          NOT NULL DEFAULT 0,
+  `ts_b`       INT          NOT NULL DEFAULT 0,
   `saved_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `saved_by`   VARCHAR(32)  DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS `scrobbles` (
   INDEX `idx_direction`    (`direction`),
   INDEX `idx_scrobbled_at` (`scrobbled_at`),
   INDEX `idx_artist`       (`artist`),
+  UNIQUE KEY `no_dup`      (`direction`, `artist`(100), `track`(100), `scrobbled_at`),
   FOREIGN KEY (`run_id`) REFERENCES `sync_runs`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

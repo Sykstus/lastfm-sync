@@ -160,6 +160,7 @@ main{max-width:1120px;margin:0 auto;padding:2rem 2rem 5rem;}
       <a href="dashboard.php" <?= $navPage==='dashboard'?'class="active"':'' ?>>Dashboard</a>
       <a href="scrobbles.php" <?= $navPage==='scrobbles'?'class="active"':'' ?>>Scroble</a>
       <a href="stats.php" <?= $navPage==='stats'?'class="active"':'' ?>>Statystyki</a>
+      <a href="discover.php" <?= $navPage==='discover'?'class="active"':'' ?>>Odkryj</a>
       <?php if ($navIsAdmin): ?><a href="settings.php" <?= $navPage==='settings'?'class="active"':'' ?>>Ustawienia</a><?php endif; ?>
     </div>
     <div class="nav-sep"></div>

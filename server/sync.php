@@ -221,11 +221,11 @@ function runSync() {
             $new = filterNew($dataA_new['tracks'], $tsA);
             if (!empty($new)) {
                 $syncedA2B = scrobbleTracks($new, $cfg['api_key'], $cfg['api_secret'], $cfg['b_sk']);
-                if ($syncedA2B > 0) {
-                    $tsA = maxTs($new, $tsA);
-                }
+                if ($syncedA2B > 0) $tsA = maxTs($new, $tsA);
                 foreach ($new as $t) { saveScrobble($runId, 'a2b', $t); $artist=is_string($t['artist'])?$t['artist']:($t['artist']['#text']??''); dbLog('a','✓ '.$artist.' — '.($t['name']??''),'ok'); }
             } else { dbLog('a', 'Brak nowych scrobbli do skopiowania'); }
+            // KLUCZOWE: przesuń tsB do teraz żeby B nie cofało się gdy zacznie słuchać
+            $tsB = $now - 30;
 
         } elseif ($npB && !$npA) {
             dbLog('b', $cfg['b_user'].' słucha → kopiuję na '.$cfg['a_user'], 'info');
@@ -233,17 +233,23 @@ function runSync() {
             $new = filterNew($dataB_new['tracks'], $tsB);
             if (!empty($new)) {
                 $syncedB2A = scrobbleTracks($new, $cfg['api_key'], $cfg['api_secret'], $cfg['a_sk']);
-                if ($syncedB2A > 0) { // aktualizuj ts TYLKO jeśli scroble faktycznie trafiły na konto
-                    $tsB = maxTs($new, $tsB);
-                }
+                if ($syncedB2A > 0) $tsB = maxTs($new, $tsB);
                 foreach ($new as $t) { saveScrobble($runId, 'b2a', $t); $artist=is_string($t['artist'])?$t['artist']:($t['artist']['#text']??''); dbLog('b','✓ '.$artist.' — '.($t['name']??''),'ok'); }
             } else { dbLog('b', 'Brak nowych scrobbli do skopiowania'); }
+            // KLUCZOWE: przesuń tsA do teraz żeby A nie cofało się gdy zacznie słuchać
+            $tsA = $now - 30;
 
         } elseif ($npA && $npB) {
             dbLog('system', 'Oboje słuchają jednocześnie → pomijam synchronizację', 'warn');
+            // Aktualizuj oba ts do teraz
+            $tsA = $now - 30;
+            $tsB = $now - 30;
 
         } else {
             dbLog('system', 'Nikt nie słucha');
+            // Aktualizuj oba ts do teraz — nikt nie słucha, reset okna
+            $tsA = $now - 30;
+            $tsB = $now - 30;
         }
 
         // Zaktualizuj rekord cyklu

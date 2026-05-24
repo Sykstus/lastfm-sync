@@ -134,12 +134,16 @@ include __DIR__ . '/_nav.php';
   <div class="page-header">
     <h1 class="page-title">Statystyki</h1>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <?php foreach(['7'=>'7 dni','30'=>'30 dni','90'=>'3 mies.','180'=>'6 mies.','365'=>'rok','all'=>'Wszystko'] as $v=>$l): ?>
-        <a href="?period=<?=$v?>&limit=<?=$topLimit?>" style="font-family:'DM Mono',monospace;font-size:.68rem;padding:5px 12px;border-radius:6px;border:1px solid <?=$period===$v?'var(--accent)':'var(--border)'?>;color:<?=$period===$v?'var(--accent)':'var(--text2)'?>;background:<?=$period===$v?'rgba(200,80,60,.06)':'var(--bg2)'?>;text-decoration:none;"><?=$l?></a>
+      <?php foreach(['7'=>'7 dni','30'=>'30 dni','90'=>'3 mies.','180'=>'6 mies.','365'=>'rok','all'=>'Wszystko'] as $v=>$l):
+        $active = ($period === $v) || ($period == $v);
+      ?>
+        <a href="?period=<?=$v?>&limit=<?=$topLimit?>" style="font-family:'DM Mono',monospace;font-size:.68rem;padding:5px 12px;border-radius:6px;border:1.5px solid <?=$active?'var(--accent)':'var(--border)'?>;color:<?=$active?'var(--accent)':'var(--text2)'?>;background:<?=$active?'rgba(200,80,60,.06)':'var(--bg2)'?>;text-decoration:none;"><?=$l?></a>
       <?php endforeach; ?>
       <span style="color:var(--text3);font-size:.72rem;margin-left:4px;">Top:</span>
-      <?php foreach([10=>10,25=>25,50=>50] as $v=>$l): ?>
-        <a href="?period=<?=$period?>&limit=<?=$v?>" style="font-family:'DM Mono',monospace;font-size:.68rem;padding:5px 10px;border-radius:6px;border:1px solid <?=$topLimit===$v?'var(--accent)':'var(--border)'?>;color:<?=$topLimit===$v?'var(--accent)':'var(--text2)'?>;background:<?=$topLimit===$v?'rgba(200,80,60,.06)':'var(--bg2)'?>;text-decoration:none;"><?=$l?></a>
+      <?php foreach([10=>10,25=>25,50=>50] as $v=>$l):
+        $active = ($topLimit === $v);
+      ?>
+        <a href="?period=<?=$period?>&limit=<?=$v?>" style="font-family:'DM Mono',monospace;font-size:.68rem;padding:5px 10px;border-radius:6px;border:1.5px solid <?=$active?'var(--accent)':'var(--border)'?>;color:<?=$active?'var(--accent)':'var(--text2)'?>;background:<?=$active?'rgba(200,80,60,.06)':'var(--bg2)'?>;text-decoration:none;"><?=$l?></a>
       <?php endforeach; ?>
     </div>
   </div>

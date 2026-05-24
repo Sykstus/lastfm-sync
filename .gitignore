@@ -1,0 +1,19 @@
+# Server — sensitive files
+server/config.php
+server/data/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.iml
+android/.idea/
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+
+# OS
+.DS_Store
+Thumbs.db
+*.log

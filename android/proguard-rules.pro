@@ -1,0 +1,1 @@
+-keep class pl.hellyeah.lastfmsync.data.model.** { *; }

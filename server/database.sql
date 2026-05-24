@@ -73,14 +73,13 @@ CREATE TABLE IF NOT EXISTS `panel_users` (
   `last_login`   DATETIME     DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ─── DOMYŚLNI UŻYTKOWNICY PANELU ─────────────────────────────────────────────
--- Hasła: admin=admin123, surprice=music123
--- ZMIEŃ HASŁA po pierwszym logowaniu!
+-- ─── DOMYŚLNY UŻYTKOWNIK PANELU ─────────────────────────────────────────────
+-- Default credentials: admin / password
+-- CHANGE THE PASSWORD immediately after first login!
 
 INSERT INTO `panel_users` (`username`, `password`, `lastfm_user`, `role`) VALUES
-('admin',    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL,        'admin'),
-('sykstus',  '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Sykstus666','user'),
-('surprice', '$2y$10$TKh8H1.PnD5f2zNAm5VO5.EONPEdm3Uo/k.gFsV0KwS', 'surprice_', 'user');
+('admin', '$2y$10$YOfG4F4sZ4liymJvaRjAyeRr8QHEW5lA6441akIAFwnwz8nPDAOpq', NULL, 'admin');
 
--- Hasła: sykstus=music123, surprice=music456
--- WYGENERUJ WŁASNE przez: php -r "echo password_hash('TWOJE_HASLO', PASSWORD_BCRYPT);"
+-- Generate your own password hash:
+-- php -r "echo password_hash('YOUR_PASSWORD', PASSWORD_BCRYPT);"
+-- Then update: UPDATE panel_users SET password='HASH' WHERE username='admin';

@@ -109,9 +109,16 @@ In your hosting control panel, add a cron job to run every 5 minutes:
 
 Navigate to `https://your-domain.com/fm/login.php`
 
-Default credentials are set in `server/database.sql`. Before going live, change all passwords via **Settings → Change password**.
+Default credentials:
 
-> ⚠️ **Change all passwords immediately after first login!**
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `password` | Admin |
+
+> ⚠️ **Change the password immediately after first login** — Settings → Change password.
+> 
+> To add more users, insert them directly into the `panel_users` table in phpMyAdmin.
+> Generate a password hash with: `php -r "echo password_hash('YOUR_PASSWORD', PASSWORD_BCRYPT);"`
 
 ---
 

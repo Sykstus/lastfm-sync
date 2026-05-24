@@ -109,12 +109,7 @@ In your hosting control panel, add a cron job to run every 5 minutes:
 
 Navigate to `https://your-domain.com/fm/login.php`
 
-Default credentials:
-| Username | Password | Role |
-|----------|----------|------|
-| `admin` | `password` | Admin |
-| `sykstus` | `music123` | User |
-| `surprice` | `music456` | User |
+Default credentials are set in `server/database.sql`. Before going live, change all passwords via **Settings → Change password**.
 
 > ⚠️ **Change all passwords immediately after first login!**
 
